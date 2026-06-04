@@ -7,140 +7,67 @@ module.exports = cds.service.impl(async function () {
   this.on('uploadXML', async (req) => {
     const { fileName, xmlContent } = req.data;
 
-    if (!xmlContent) {
-      return JSON.stringify({ error: 'XML content is empty' }, null, 2);
-    }
+    if (!xmlContent) return JSON.stringify({ error: "XML content is empty" });
 
-    const parser = new xml2js.Parser({
-      explicitArray: false,
-      ignoreAttrs: false
-    });
+    const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: false });
 
-    const parsed = await parser.parseStringPromise(xmlContent);
+    try {
+      const parsed = await parser.parseStringPromise(xmlContent);
 
-    const doc = parsed.Document;
-    const initn = doc.CstmrCdtTrfInitn;
-    const grpHdr = initn.GrpHdr;
-    const pmtInf = initn.PmtInf;
-    const tx = pmtInf.CdtTrfTxInf;
+      if (!parsed?.Document?.CstmrCdtTrfInitn) {
+        console.error("Invalid XML structure:", xmlContent);
+        return JSON.stringify({ error: "Invalid XML structure" });
+      }
 
-    const instructedAmount = tx.Amt.InstdAmt;
-    const amount =
-      typeof instructedAmount === 'object'
-        ? instructedAmount._
-        : instructedAmount;
+      const initn = parsed.Document.CstmrCdtTrfInitn;
+      const grpHdr = initn.GrpHdr;
+      const pmtInf = initn.PmtInf;
+      const tx = Array.isArray(pmtInf.CdtTrfTxInf) ? pmtInf.CdtTrfTxInf[0] : pmtInf.CdtTrfTxInf;
 
-    const currency =
-      instructedAmount.$?.Ccy || pmtInf.DbtrAcct.Ccy || 'INR';
+      const amount = typeof tx.Amt.InstdAmt === "object" ? tx.Amt.InstdAmt._ : tx.Amt.InstdAmt;
+      const currency = tx.Amt.InstdAmt?.$?.Ccy || "INR";
 
-    const debtorAccount =
-      pmtInf.DbtrAcct.Id.Othr.Id;
-
-    const debtorScheme =
-      pmtInf.DbtrAcct.Id.Othr.SchmeNm?.Cd || '';
-
-    const creditorAccount =
-      tx.CdtrAcct.Id.Othr.Id;
-
-    const creditorIFSC =
-      tx.CdtrAcct.Id.Othr.SchmeNm?.Cd ||
-      tx.CdtrAgt.FinInstnId.ClrSysMmbId.MmbId;
-
-    const creditorName = tx.Cdtr.Nm;
-
-    const creditorEmail =
-      tx.Cdtr.EmailID ||
-      tx.Cdtr.CtctDtls?.EmailAdr ||
-      '';
-
-    const creditorMobile =
-      tx.Cdtr.MobileNo || '';
-
-    const addressLineRaw =
-      tx.CdtrAgt.FinInstnId.PstlAdr?.AdrLine || [];
-
-    const addressLine = Array.isArray(addressLineRaw)
-      ? addressLineRaw
-      : [addressLineRaw];
-
-    const remarks =
-      tx.RmtInf?.Strd?.RfrdDocInf?.NbText ||
-      tx.RmtInf?.Strd?.RfrdDocInf?.Nb ||
-      'Payment';
-
-    const yesBankPayload = {
-      Data: {
-        FileIdentifier: grpHdr.MsgId,
-        NumberOfTransactions: grpHdr.NbOfTxs,
-        ConsentId: '256660',
-        ControSum: grpHdr.CtrlSum,
-        SecondaryIdentification: '256660',
-        DomesticPayments: [
-          {
-            ConsentId: '256660',
-            Initiation: {
-              InstructionIdentification: tx.PmtId.InstrId,
-              EndToEndIdentification: tx.PmtId.EndToEndId,
-              ClearingSystemIdentification: 'NEFT',
-              InstructedAmount: {
-                Amount: amount,
-                Currency: currency
-              },
-              DebtorAccount: {
-                SchemeName: debtorScheme,
-                Identification: debtorAccount,
-                Name: 'GOVIND MILK PRODUCTS',
-                SecondaryIdentification: '256660',
-                Unstructured: {
-                  ContactInformation: {},
-                  Identities: {}
-                }
-              },
-              CreditorAccount: {
-                SchemeName: creditorIFSC,
-                Identification: creditorAccount,
-                Name: creditorName,
-                Unstructured: {
-                  ContactInformation: {
-                    EmailAddress: creditorEmail,
-                    MobileNumber: creditorMobile
-                  },
-                  Identities: {}
-                }
-              },
-              RemittanceInformation: {
-                Unstructured: {
-                  CreditorReferenceInformation: remarks,
-                  RemitterAccount: debtorAccount
-                }
-              }
-            },
-            Risk: {
-              PaymentContextCode: 'BankTransfer',
-              DeliveryAddress: {
-                Country: 'IN',
-                AddressLine: addressLine
+      const yesBankPayload = {
+        Data: {
+          FileIdentifier: grpHdr?.MsgId || "",
+          NumberOfTransactions: grpHdr?.NbOfTxs || "0",
+          ConsentId: "256660",
+          ControSum: grpHdr?.CtrlSum || "0",
+          SecondaryIdentification: "256660",
+          DomesticPayments: [
+            {
+              ConsentId: "256660",
+              Initiation: {
+                InstructionIdentification: tx?.PmtId?.InstrId || "",
+                EndToEndIdentification: tx?.PmtId?.EndToEndId || "",
+                ClearingSystemIdentification: "NEFT",
+                InstructedAmount: { Amount: amount, Currency: currency }
               }
             }
-          }
-        ]
-      }
-    };
+          ]
+        }
+      };
 
-    await INSERT.into(PaymentFiles).entries({
-      ID: cds.utils.uuid(),
-      fileIdentifier: grpHdr.MsgId,
-      numberOfTransactions: Number(grpHdr.NbOfTxs),
-      consentId: '256660',
-      controlSum: Number(grpHdr.CtrlSum),
-      secondaryIdentification: '256660',
-      yesBankPayload: JSON.stringify(yesBankPayload, null, 2),
-      createdAt: new Date()
-    });
+      await INSERT.into(PaymentFiles).entries({
+        ID: cds.utils.uuid(),
+        fileIdentifier: grpHdr?.MsgId || "",
+        numberOfTransactions: Number(grpHdr?.NbOfTxs || 0),
+        consentId: "256660",
+        controlSum: Number(grpHdr?.CtrlSum || 0),
+        secondaryIdentification: "256660",
+        yesBankPayload: JSON.stringify(yesBankPayload, null, 2),
+        createdAt: new Date()
+      });
 
-    console.log("===== YES Bank Payload START =====");
-console.log(JSON.stringify(yesBankPayload, null, 2));
-console.log("===== YES Bank Payload END =====");
-    return JSON.stringify(yesBankPayload, null, 2);
+      console.log("===== YES Bank Payload START =====");
+      console.log(JSON.stringify(yesBankPayload, null, 2));
+      console.log("===== YES Bank Payload END =====");
+
+      return JSON.stringify(yesBankPayload, null, 2);
+
+    } catch (err) {
+      console.error("XML parsing error:", err);
+      return JSON.stringify({ error: "Failed to parse XML" });
+    }
   });
 });
