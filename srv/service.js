@@ -138,6 +138,9 @@ module.exports = cds.service.impl(async function () {
       createdAt: new Date()
     });
 
+    console.log("===== YES Bank Payload START =====");
+console.log(JSON.stringify(yesBankPayload, null, 2));
+console.log("===== YES Bank Payload END =====");
     return JSON.stringify(yesBankPayload, null, 2);
   });
 });
