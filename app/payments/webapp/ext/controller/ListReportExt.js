@@ -9,7 +9,6 @@ sap.ui.define([
 
   return {
     onUploadXML: function () {
-
       const oFileUploader = new FileUploader({
         width: "100%",
         fileType: ["xml"],
@@ -36,7 +35,7 @@ sap.ui.define([
               const xmlContent = e.target.result;
 
               try {
-                console.log("XML Content:", xmlContent);
+                console.log("Uploading XML Content:", xmlContent);
 
                 const response = await fetch("/odata/v4/payment/uploadXML", {
                   method: "POST",
@@ -47,13 +46,13 @@ sap.ui.define([
                 if (!response.ok) {
                   const errorText = await response.text();
                   console.error("Backend error:", errorText);
-                  MessageBox.error("Backend call failed. Check terminal.");
+                  MessageBox.error("Backend upload failed. Check terminal.");
                   return;
                 }
 
                 const data = await response.json();
-                console.log("YES Bank Payload:", data);
-                MessageBox.success("Payload generated successfully. Check browser console and terminal.");
+                console.log("XML uploaded:", data); // only upload info
+                MessageToast.show("XML uploaded successfully!");
                 oDialog.close();
 
               } catch (err) {
@@ -68,14 +67,10 @@ sap.ui.define([
 
         endButton: new Button({
           text: "Cancel",
-          press: function () {
-            oDialog.close();
-          }
+          press: function () { oDialog.close(); }
         }),
 
-        afterClose: function () {
-          oDialog.destroy();
-        }
+        afterClose: function () { oDialog.destroy(); }
       });
 
       oDialog.open();

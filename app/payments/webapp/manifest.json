@@ -59,10 +59,11 @@
     },
     "models": {
       "i18n": {
-        "type": "sap.ui.model.resource.ResourceModel",
-        "settings": {
-          "bundleName": "payments.i18n.i18n"
-        }
+        "bundleUrl": "i18n/i18n.properties",
+        "supportedLocales": [
+          "en"
+        ],
+        "fallbackLocale": "en"
       },
       "": {
         "dataSource": "mainService",
@@ -72,13 +73,6 @@
           "autoExpandSelect": true,
           "earlyRequests": true
         }
-      },
-      "i18n": {
-        "bundleUrl": "i18n/i18n.properties",
-        "supportedLocales": [
-          "en"
-        ],
-        "fallbackLocale": "en"
       }
     },
     "resources": {
@@ -140,7 +134,20 @@
           "options": {
             "settings": {
               "editableHeaderContent": false,
-              "contextPath": "/PaymentFiles"
+              "contextPath": "/PaymentFiles",
+              "content": {
+                "header": {
+                  "actions": {
+                    "payload": {
+                      "press": "payments.ext.controller.payload.submit",
+                      "visible": true,
+                      "enabled": true,
+                      "requiresSelection": false,
+                      "text": "submit"
+                    }
+                  }
+                }
+              }
             }
           }
         }

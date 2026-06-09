@@ -31,13 +31,7 @@ annotate service.PaymentFiles with @(
       $Type: 'UI.DataField',
       Value: createdAt,
       Label: 'Created At'
-    },
-    // {
-    //   $Type: 'UI.DataFieldForAction',
-    //   Action: 'PaymentService.uploadXML',
-    //   Label: 'Upload XML',
-    //   RequiresContext: false
-    // }
+    }
   ],
 
   UI.HeaderInfo: {

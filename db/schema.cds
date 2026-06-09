@@ -8,5 +8,6 @@ entity PaymentFiles {
       controlSum          : Decimal(15,2);
       secondaryIdentification : String(20);
       yesBankPayload      : LargeString;
+      xmlContent          : LargeString;
       createdAt           : Timestamp;
 }
