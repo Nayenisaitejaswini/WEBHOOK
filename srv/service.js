@@ -76,4 +76,21 @@ module.exports = cds.service.impl(async function () {
 
         return { message: `XML uploaded and ${transactions.length} transactions inserted successfully.` };
     });
+    this.on('generatePayload', async (req) => {
+    const { fileIdentifier, Data } = req.data;
+    if (!fileIdentifier || !Data) req.error(400, 'fileIdentifier and Data are required');
+
+    const builder = new Builder({ rootName: 'Document', xmldec: { version: '1.0', encoding: 'UTF-8' } });
+
+    const xmlObj = { /* map your JSON payload to pain.001 XML as before */ };
+
+    const xmlContent = builder.buildObject(xmlObj);
+
+    // Optionally update the table
+    await UPDATE(PaymentFiles).set({ xmlContent }).where({ fileIdentifier });
+
+    console.log('Generated XML:', xmlContent);
+
+    return { xmlContent };
+});
 });
