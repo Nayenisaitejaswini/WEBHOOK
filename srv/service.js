@@ -74,23 +74,188 @@ module.exports = cds.service.impl(async function () {
             await INSERT.into(PaymentFiles).entries(newRecord);
         }
 
+        // Build and print JSON Payload for YES Bank to terminal
+        const domesticPayments = [];
+        for (const tx of transactions) {
+            const rmt = tx?.RmtInf?.Strd;
+
+            // Extract amount & currency correctly
+            let amountStr = "";
+            let currencyStr = "INR";
+            if (tx?.Amt?.InstdAmt) {
+                if (typeof tx.Amt.InstdAmt === 'object') {
+                    amountStr = tx.Amt.InstdAmt._ || "";
+                    if (tx.Amt.InstdAmt.$ && tx.Amt.InstdAmt.$.Ccy) {
+                        currencyStr = tx.Amt.InstdAmt.$.Ccy;
+                    }
+                } else {
+                    amountStr = String(tx.Amt.InstdAmt);
+                }
+            }
+
+            domesticPayments.push({
+                ConsentId: grpHdr?.MsgId || '',
+                Initiation: {
+                    InstructionIdentification: tx?.PmtId?.InstrId || '',
+                    ClearingSystemIdentification: pmtInf?.PmtMtd || 'FT',
+                    InstructedAmount: { Amount: amountStr, Currency: currencyStr },
+                    DebtorAccount: {
+                        SchemeName: pmtInf?.DbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+                        Identification: pmtInf?.DbtrAcct?.Id?.Othr?.Id || '',
+                        Name: pmtInf?.Dbtr?.Nm || '',
+                        SecondaryIdentification: grpHdr?.MsgId || '',
+                        Unstructured: { ContactInformation: { MobileNumber: "9922919744" } }
+                    },
+                    CreditorAccount: {
+                        SchemeName: tx?.CdtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+                        Identification: tx?.CdtrAcct?.Id?.Othr?.Id || '',
+                        Name: tx?.Cdtr?.Nm || ''
+                    },
+                    RemittanceInformation: {
+                        Unstructured: {
+                            CreditorReferenceInformation: rmt?.RfrdDocInf?.Nb || tx?.RmtInf?.Ustrd || 'Diwali',
+                            RemitterAccount: pmtInf?.DbtrAcct?.Id?.Othr?.Id || ''
+                        }
+                    }
+                },
+                Risk: {
+                    PaymentContextCode: "BankTransfer",
+                    DeliveryAddress: { 
+                        Country: tx?.Cdtr?.PstlAdr?.Ctry || pmtInf?.Dbtr?.PstlAdr?.Ctry || "IN", 
+                        AddressLine: Array.isArray(tx?.Cdtr?.PstlAdr?.AdrLine) ? tx.Cdtr.PstlAdr.AdrLine : (tx?.Cdtr?.PstlAdr?.AdrLine ? [tx.Cdtr.PstlAdr.AdrLine] : ["PHALTAN"])
+                    }
+                }
+            });
+        }
+
+        const generatedJsonPayload = {
+            FileIdentifier: fileName,
+            NumberOfTransactions: grpHdr?.NbOfTxs || String(transactions.length),
+            ConsentId: grpHdr?.MsgId || '',
+            ControSum: grpHdr?.CtrlSum || '',
+            SecondaryIdentification: grpHdr?.MsgId || '',
+            DomesticPayments: domesticPayments
+        };
+
+        console.log("\n=================== GENERATED JSON PAYLOAD FROM XML ===================");
+        console.log(JSON.stringify(generatedJsonPayload, null, 2));
+        console.log("=======================================================================\n");
+
         return { message: `XML uploaded and ${transactions.length} transactions inserted successfully.` };
     });
+
     this.on('generatePayload', async (req) => {
-    const { fileIdentifier, Data } = req.data;
-    if (!fileIdentifier || !Data) req.error(400, 'fileIdentifier and Data are required');
+        const { fileIdentifier, Data } = req.data;
+        if (!fileIdentifier || !Data) req.error(400, 'fileIdentifier and Data are required');
 
-    const builder = new Builder({ rootName: 'Document', xmldec: { version: '1.0', encoding: 'UTF-8' } });
+        let parsedData = Data;
+        if (typeof Data === 'string') {
+            try {
+                parsedData = JSON.parse(Data);
+            } catch (err) {
+                req.error(400, `Invalid Data format: ${err.message}`);
+            }
+        }
 
-    const xmlObj = { /* map your JSON payload to pain.001 XML as before */ };
+        console.log("\n=================== RECEIVED JSON PAYLOAD ===================");
+        console.log(JSON.stringify(parsedData, null, 2));
+        console.log("==============================================================\n");
 
-    const xmlContent = builder.buildObject(xmlObj);
+        const domesticPayments = parsedData?.DomesticPayments || [];
+        const firstPayment = domesticPayments[0];
+        const initiation = firstPayment?.Initiation;
+        const debtorAccount = initiation?.DebtorAccount;
 
-    // Optionally update the table
-    await UPDATE(PaymentFiles).set({ xmlContent }).where({ fileIdentifier });
+        const cdtTrfTxInf = domesticPayments.map((pmt) => {
+            const init = pmt.Initiation;
+            const creditorAcc = init?.CreditorAccount;
+            const remittance = init?.RemittanceInformation?.Unstructured;
 
-    console.log('Generated XML:', xmlContent);
+            let instdAmt = {};
+            if (init?.InstructedAmount?.Amount) {
+                instdAmt = {
+                    _: init.InstructedAmount.Amount,
+                    $: { Ccy: init.InstructedAmount.Currency || 'INR' }
+                };
+            }
 
-    return { xmlContent };
-});
+            return {
+                PmtId: {
+                    InstrId: init?.InstructionIdentification || '',
+                    EndToEndId: init?.InstructionIdentification || ''
+                },
+                Amt: {
+                    InstdAmt: instdAmt
+                },
+                Cdtr: {
+                    Nm: creditorAcc?.Name || ''
+                },
+                CdtrAcct: {
+                    Id: {
+                        Othr: {
+                            Id: creditorAcc?.Identification || ''
+                        }
+                    }
+                },
+                CdtrAgt: {
+                    FinInstnId: {
+                        ClrSysMmbId: {
+                            MmbId: creditorAcc?.SchemeName || ''
+                        }
+                    }
+                },
+                RmtInf: {
+                    Strd: {
+                        RfrdDocInf: {
+                            Nb: remittance?.CreditorReferenceInformation || ''
+                        }
+                    }
+                }
+            };
+        });
+
+        const xmlObj = {
+            CstmrCdtTrfInitn: {
+                GrpHdr: {
+                    MsgId: parsedData?.ConsentId || '',
+                    NbOfTxs: parsedData?.NumberOfTransactions || String(domesticPayments.length),
+                    CtrlSum: parsedData?.ControSum || ''
+                },
+                PmtInf: {
+                    PmtMtd: initiation?.ClearingSystemIdentification || 'FT',
+                    ReqdExctnDt: new Date().toISOString().split('T')[0],
+                    Dbtr: {
+                        Nm: debtorAccount?.Name || ''
+                    },
+                    DbtrAcct: {
+                        Id: {
+                            Othr: {
+                                Id: debtorAccount?.Identification || ''
+                            }
+                        }
+                    },
+                    DbtrAgt: {
+                        FinInstnId: {
+                            ClrSysMmbId: {
+                                MmbId: debtorAccount?.SchemeName || ''
+                            }
+                        }
+                    },
+                    CdtTrfTxInf: cdtTrfTxInf
+                }
+            }
+        };
+
+        const builder = new xml2js.Builder({ rootName: 'Document', xmldec: { version: '1.0', encoding: 'UTF-8' } });
+        const xmlContent = builder.buildObject(xmlObj);
+
+        // Update the table
+        await UPDATE(PaymentFiles).set({ xmlContent }).where({ fileIdentifier });
+
+        console.log("\n=================== GENERATED XML PAYLOAD ===================");
+        console.log(xmlContent);
+        console.log("==============================================================\n");
+
+        return { xmlContent };
+    });
 });

@@ -58,7 +58,7 @@ sap.ui.define([
         const response = await fetch("/odata/v4/payment/generatePayload", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileIdentifier, Data }) // include Data
+            body: JSON.stringify({ fileIdentifier, Data: JSON.stringify(Data) }) // include Data as stringified JSON
         });
 
         if (!response.ok) {

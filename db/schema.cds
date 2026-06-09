@@ -4,8 +4,8 @@ entity PaymentFiles {
     key ID                         : UUID;
     fileIdentifier                  : String(100);
     createdAt                        : Timestamp;
-    // yesBankPayload                   : LargeString;
-    // xmlContent                       : LargeString;
+    yesBankPayload                   : LargeString;
+    xmlContent                       : LargeString;
 
     // Group Header
     consentId                        : String(50);  // MsgId
