@@ -11,44 +11,60 @@ sap.ui.define([
         return;
     }
 
-    const fileIdentifier = aSelectedContexts[0].getProperty("fileIdentifier");
+    const oSelected = aSelectedContexts[0];
+    const fileIdentifier = oSelected.getProperty("fileIdentifier");
+    const numberOfTransactions = String(oSelected.getProperty("numberOfTransactions") || 0);
+    const consentId = oSelected.getProperty("consentId") || "";
+    const controlSum = String(oSelected.getProperty("controlSum") || 0);
+    const secondaryIdentification = oSelected.getProperty("secondaryIdentification") || "";
+    const paymentMethod = oSelected.getProperty("paymentMethod") || "FT";
+    const amount = String(oSelected.getProperty("amount") || 0);
+    const currency = oSelected.getProperty("currency") || "INR";
+    const debtorBank = oSelected.getProperty("debtorBank") || "";
+    const debtorAccount = oSelected.getProperty("debtorAccount") || "";
+    const debtorName = oSelected.getProperty("debtorName") || "";
+    const creditorBank = oSelected.getProperty("creditorBank") || "";
+    const creditorAccount = oSelected.getProperty("creditorAccount") || "";
+    const creditorName = oSelected.getProperty("creditorName") || "";
+    const remittanceInfo = oSelected.getProperty("remittanceInfo") || "";
+    const creditorCountry = oSelected.getProperty("creditorCountry") || "IN";
+    const creditorMobile = oSelected.getProperty("creditorMobile") || "";
 
-    // TODO: provide your JSON payload here (example)
     const Data = {
         FileIdentifier: fileIdentifier,
-        NumberOfTransactions: "2",
-        ConsentId: "256660",
-        ControSum: "10",
-        SecondaryIdentification: "256660",
+        NumberOfTransactions: numberOfTransactions,
+        ConsentId: consentId,
+        ControSum: controlSum,
+        SecondaryIdentification: secondaryIdentification,
         DomesticPayments: [
             {
-                ConsentId: "256660",
+                ConsentId: consentId,
                 Initiation: {
-                    InstructionIdentification: "VVV3",
-                    ClearingSystemIdentification: "FT",
-                    InstructedAmount: { Amount: "5", Currency: "INR" },
+                    InstructionIdentification: secondaryIdentification,
+                    ClearingSystemIdentification: paymentMethod,
+                    InstructedAmount: { Amount: amount, Currency: currency },
                     DebtorAccount: {
-                        SchemeName: "YESB00SMSBL",
-                        Identification: "001081300000304",
-                        Name: "GOVIND MILK PRODUCTS",
-                        SecondaryIdentification: "256660",
-                        Unstructured: { ContactInformation: { MobileNumber: "9922919744" } }
+                        SchemeName: debtorBank,
+                        Identification: debtorAccount,
+                        Name: debtorName,
+                        SecondaryIdentification: consentId,
+                        Unstructured: { ContactInformation: { MobileNumber: creditorMobile || "9922919744" } }
                     },
                     CreditorAccount: {
-                        SchemeName: "YESB0000001",
-                        Identification: "041583800000162",
-                        Name: "AACita Dattatray Nimbalkar"
+                        SchemeName: creditorBank,
+                        Identification: creditorAccount,
+                        Name: creditorName
                     },
                     RemittanceInformation: {
                         Unstructured: {
-                            CreditorReferenceInformation: "Diwali",
-                            RemitterAccount: "816002021000038"
+                            CreditorReferenceInformation: remittanceInfo || "Diwali",
+                            RemitterAccount: debtorAccount
                         }
                     }
                 },
                 Risk: {
                     PaymentContextCode: "BankTransfer",
-                    DeliveryAddress: { Country: "IN", AddressLine: ["PHALTAN"] }
+                    DeliveryAddress: { Country: creditorCountry || "IN", AddressLine: ["PHALTAN"] }
                 }
             }
         ]
@@ -67,9 +83,9 @@ sap.ui.define([
         }
 
         const payload = await response.json();
-        console.log("===== Generated Payload =====");
-        console.log(payload.xmlContent); // the XML string
-        MessageToast.show("Payload generated! Check terminal.");
+        console.log("===== Generated JSON Payload =====");
+        console.log(payload.yesBankPayload); // the JSON string
+        MessageToast.show("JSON Payload generated! Check terminal.");
 
     } catch (err) {
         MessageBox.error("Generate payload failed: " + err.message);

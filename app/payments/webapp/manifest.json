@@ -4,93 +4,40 @@
     "id": "payments",
     "type": "application",
     "i18n": "i18n/i18n.properties",
-    "applicationVersion": {
-      "version": "0.0.1"
-    },
+    "applicationVersion": { "version": "0.0.1" },
     "title": "{{appTitle}}",
     "description": "{{appDescription}}",
     "resources": "resources.json",
-    "sourceTemplate": {
-      "id": "@sap/generator-fiori:lrop",
-      "version": "1.25.0",
-      "toolsId": "ebca79ab-481a-4cee-9f4d-7f115c4301f4"
-    },
+    "sourceTemplate": { "id": "@sap/generator-fiori:lrop", "version": "1.25.0" },
     "dataSources": {
       "mainService": {
         "uri": "/odata/v4/payment/",
         "type": "OData",
-        "settings": {
-          "annotations": [],
-          "odataVersion": "4.0"
-        }
+        "settings": { "annotations": [], "odataVersion": "4.0" }
       }
-    }
-  },
-  "sap.ui": {
-    "technology": "UI5",
-    "icons": {
-      "icon": "",
-      "favIcon": "",
-      "phone": "",
-      "phone@2": "",
-      "tablet": "",
-      "tablet@2": ""
-    },
-    "deviceTypes": {
-      "desktop": true,
-      "tablet": true,
-      "phone": true
     }
   },
   "sap.ui5": {
-    "flexEnabled": false,
     "dependencies": {
       "minUI5Version": "1.148.1",
-      "libs": {
-        "sap.m": {},
-        "sap.ui.core": {},
-        "sap.fe.templates": {},
-        "sap.ui.unified": {}
-      }
-    },
-    "contentDensities": {
-      "compact": true,
-      "cozy": true
+      "libs": { "sap.m": {}, "sap.ui.core": {}, "sap.fe.templates": {} }
     },
     "models": {
       "i18n": {
-        "bundleUrl": "i18n/i18n.properties",
-        "supportedLocales": [
-          "en"
-        ],
-        "fallbackLocale": "en"
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": { "bundleName": "payments.i18n.i18n" }
       },
       "": {
         "dataSource": "mainService",
         "preload": true,
-        "settings": {
-          "operationMode": "Server",
-          "autoExpandSelect": true,
-          "earlyRequests": true
-        }
+        "settings": { "operationMode": "Server", "autoExpandSelect": true }
       }
     },
-    "resources": {
-      "css": []
-    },
+    "contentDensities": { "compact": true, "cozy": true },
     "routing": {
-      "config": {},
       "routes": [
-        {
-          "pattern": ":?query:",
-          "name": "PaymentFilesList",
-          "target": "PaymentFilesList"
-        },
-        {
-          "pattern": "PaymentFiles({key}):?query:",
-          "name": "PaymentFilesObjectPage",
-          "target": "PaymentFilesObjectPage"
-        }
+        { "pattern": ":?query:", "name": "PaymentFilesList", "target": "PaymentFilesList" },
+        { "pattern": "PaymentFiles({key}):?query:", "name": "PaymentFilesObjectPage", "target": "PaymentFilesObjectPage" }
       ],
       "targets": {
         "PaymentFilesList": {
@@ -101,13 +48,7 @@
             "settings": {
               "contextPath": "/PaymentFiles",
               "variantManagement": "Page",
-              "navigation": {
-                "PaymentFiles": {
-                  "detail": {
-                    "route": "PaymentFilesObjectPage"
-                  }
-                }
-              },
+              "navigation": { "PaymentFiles": { "detail": { "route": "PaymentFilesObjectPage" } } },
               "controlConfiguration": {
                 "@com.sap.vocabularies.UI.v1.LineItem": {
                   "actions": {
@@ -119,9 +60,7 @@
                       "text": "Upload XML & Convert"
                     }
                   },
-                  "tableSettings": {
-                    "type": "ResponsiveTable"
-                  }
+                  "tableSettings": { "type": "ResponsiveTable" }
                 }
               }
             }
@@ -139,11 +78,10 @@
                 "header": {
                   "actions": {
                     "payload": {
-                      "press": "payments.ext.controller.payload.submit",
+                      "press": "payments.ext.controller.ListReportExt.onGeneratePayload",
                       "visible": true,
                       "enabled": true,
-                      "requiresSelection": false,
-                      "text": "submit"
+                      "text": "Print Payload"
                     }
                   }
                 }
@@ -152,15 +90,6 @@
           }
         }
       }
-    }
-  },
-  "sap.fiori": {
-    "registrationIds": [],
-    "archeType": "transactional"
-  },
-  "sap.fe": {
-    "app": {
-      "enableLazyLoading": true
     }
   }
 }

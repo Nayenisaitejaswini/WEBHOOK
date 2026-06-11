@@ -4,6 +4,7 @@ const xml2js = require('xml2js');
 module.exports = cds.service.impl(async function () {
     const { PaymentFiles } = this.entities;
 
+    // ------------------ Upload XML Action ------------------
     this.on('uploadXML', async (req) => {
         const { fileName, xmlContent } = req.data;
 
@@ -18,95 +19,60 @@ module.exports = cds.service.impl(async function () {
         const pmtInf = parsedXml?.Document?.CstmrCdtTrfInitn?.PmtInf;
         const transactions = Array.isArray(pmtInf?.CdtTrfTxInf) ? pmtInf.CdtTrfTxInf : [pmtInf.CdtTrfTxInf];
 
-        for (const tx of transactions) {
-            const tax = tx?.Tax;
+        // Insert PaymentFiles record
+        const newRecord = {
+            ID: cds.utils.uuid(),
+            fileIdentifier: grpHdr?.MsgId || fileName,
+            createdAt: new Date(),
+            xmlContent: xmlContent,
+            consentId: grpHdr?.MsgId || '',
+            numberOfTransactions: parseInt(grpHdr?.NbOfTxs || 0),
+            controlSum: parseFloat(grpHdr?.CtrlSum || 0),
+            secondaryIdentification: transactions[0]?.PmtId?.InstrId || '',
+            endToEndId: transactions[0]?.PmtId?.EndToEndId || '',
+            paymentMethod: pmtInf?.PmtMtd || '',
+            executionDate: pmtInf?.ReqdExctnDt ? new Date(pmtInf?.ReqdExctnDt) : null,
+            amount: parseFloat(transactions[0]?.Amt?.InstdAmt?._ || 0),
+            currency: transactions[0]?.Amt?.InstdAmt?.$?.Ccy || '',
+            CmpCode: pmtInf?.CoCode || '',
+            CompanyCodeName: grpHdr?.InitgPty?.Nm || '',
+            pNbOfTxs: pmtInf?.NbOfTxs || 0,
+            pCtrlSum: parseFloat(pmtInf?.CtrlSum || 0),
+            debtorName: pmtInf?.Dbtr?.Nm || '',
+            debtorAccount: pmtInf?.DbtrAcct?.Id?.Othr?.Id || '',
+            debtorBank: pmtInf?.DbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+            debtorCountry: pmtInf?.Dbtr?.PstlAdr?.Ctry || '',
+            debtorEmail: pmtInf?.Dbtr?.PstlAdr?.EMail || '',
+            creditorName: transactions[0]?.Cdtr?.Nm || '',
+            creditorAccount: transactions[0]?.CdtrAcct?.Id?.Othr?.Id || '',
+            creditorBank: transactions[0]?.CdtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+            creditorCountry: transactions[0]?.Cdtr?.PstlAdr?.Ctry || '',
+            creditorEmail: transactions[0]?.Cdtr?.EmailID || '',
+            creditorMobile: transactions[0]?.Cdtr?.MobileNo || '',
+            taxId: transactions[0]?.Tax?.Dbtr?.TaxId || '',
+            taxRef: transactions[0]?.Tax?.RefNb || '',
+            taxDate: transactions[0]?.Tax?.Dt || null,
+            taxType: transactions[0]?.Tax?.Rcrd?.Tp || '',
+            taxAmount: parseFloat(transactions[0]?.Tax?.Rcrd?.TaxAmt || 0),
+            adjustmentReason: transactions[0]?.RmtInf?.Strd?.RfrdDocAmt?.AdjstmntAmtAndRsn?.Rsn || '',
+            adjustmentType: transactions[0]?.RmtInf?.Strd?.RfrdDocAmt?.AdjstmntAmtAndRsn?.CdtDbtInd || '',
+            invoiceNumber: transactions[0]?.RmtInf?.Strd?.RfrdDocInf?.Invnb || '',
+            invoiceReference: transactions[0]?.RmtInf?.Strd?.RfrdDocInf?.Nb || '',
+            remittanceInfo: transactions[0]?.RmtInf?.Strd?.RfrdDocInf?.NbText || '',
+            duePayableAmount: parseFloat(transactions[0]?.RmtInf?.Strd?.RfrdDocAmt?.DuePyblAmt?._ || 0),
+            remittedAmount: parseFloat(transactions[0]?.RmtInf?.Strd?.RfrdDocAmt?.RmtdAmt?._ || 0),
+            taxAmountRef: parseFloat(transactions[0]?.RmtInf?.Strd?.RfrdDocAmt?.TaxAmt?._ || 0)
+        };
+
+        await INSERT.into(PaymentFiles).entries(newRecord);
+
+        // Build JSON Payload for terminal
+        const domesticPayments = transactions.map((tx) => {
             const rmt = tx?.RmtInf?.Strd;
-            const adj = rmt?.RfrdDocAmt?.AdjstmntAmtAndRsn;
-            const cdtr = tx?.Cdtr;
-            const dbtr = pmtInf?.Dbtr;
-            const dbtrAcct = pmtInf?.DbtrAcct;
-            const dbtrAgt = pmtInf?.DbtrAgt;
+            let amountStr = tx?.Amt?.InstdAmt?._ || "";
+            let currencyStr = tx?.Amt?.InstdAmt?.$?.Ccy || "INR";
 
-            const newRecord = {
-                ID: cds.utils.uuid(),
-                fileIdentifier: grpHdr?.MsgId || fileName,
-                createdAt: new Date(),
-
-                // Group Header
-                consentId: grpHdr?.MsgId || '',
-                numberOfTransactions: parseInt(grpHdr?.NbOfTxs || 0),
-                controlSum: parseFloat(grpHdr?.CtrlSum || 0),
-
-                // Payment info
-                paymentMethod: pmtInf?.PmtMtd || '',
-                executionDate: pmtInf?.ReqdExctnDt ? new Date(pmtInf?.ReqdExctnDt) : null,
-                CmpCode: pmtInf?.CoCode || '',
-                CompanyCodeName: grpHdr?.InitgPty?.Nm || '',
-                pNbOfTxs: pmtInf?.NbOfTxs || 0,
-                pCtrlSum: parseFloat(pmtInf?.CtrlSum || 0),
-
-                // Transaction info
-                secondaryIdentification: tx?.PmtId?.InstrId || '',
-                endToEndId: tx?.PmtId?.EndToEndId || '',
-                amount: parseFloat(tx?.Amt?.InstdAmt?._ || 0),
-                currency: tx?.Amt?.InstdAmt?.$.Ccy || '',
-
-                // Debtor info
-                debtorName: dbtr?.Nm || '',
-                debtorAccount: dbtrAcct?.Id?.Othr?.Id || '',
-                debtorBank: dbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
-                debtorCountry: dbtr?.PstlAdr?.Ctry || '',
-                debtorEmail: dbtr?.PstlAdr?.EMail || '',
-
-                // Creditor info
-                creditorName: cdtr?.Nm || '',
-                creditorAccount: tx?.CdtrAcct?.Id?.Othr?.Id || '',
-                creditorBank: tx?.CdtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
-                creditorCountry: cdtr?.PstlAdr?.Ctry || '',
-                creditorEmail: cdtr?.EmailID || cdtr?.CtctDtls?.EmailAdr || '',
-                creditorMobile: cdtr?.MobileNo || '',
-
-                // Tax info
-                taxId: tax?.Dbtr?.TaxId || '',
-                taxRef: tax?.RefNb || '',
-                taxDate: tax?.Dt || null,
-                taxType: tax?.Rcrd?.Tp || '',
-                taxAmount: parseFloat(tax?.Rcrd?.TaxAmt || 0),
-                adjustmentReason: adj?.Rsn || '',
-                adjustmentType: adj?.CdtDbtInd || '',
-
-                // Remittance / Invoice info
-                invoiceNumber: rmt?.RfrdDocInf?.Invnb || '',
-                invoiceReference: rmt?.RfrdDocInf?.Nb || '',
-                remittanceInfo: rmt?.RfrdDocInf?.NbText || '',
-                duePayableAmount: parseFloat(rmt?.RfrdDocAmt?.DuePyblAmt?._ || 0),
-                remittedAmount: parseFloat(rmt?.RfrdDocAmt?.RmtdAmt?._ || 0),
-                taxAmountRef: parseFloat(rmt?.RfrdDocAmt?.TaxAmt?._ || 0)
-            };
-
-            await INSERT.into(PaymentFiles).entries(newRecord);
-        }
-
-         // Build and print JSON Payload for YES Bank to terminal
-        const domesticPayments = [];
-        for (const tx of transactions) {
-            const rmt = tx?.RmtInf?.Strd;
-
-            // Extract amount & currency correctly
-            let amountStr = "";
-            let currencyStr = "INR";
-            if (tx?.Amt?.InstdAmt) {
-                if (typeof tx.Amt.InstdAmt === 'object') {
-                    amountStr = tx.Amt.InstdAmt._ || "";
-                    if (tx.Amt.InstdAmt.$ && tx.Amt.InstdAmt.$.Ccy) {
-                        currencyStr = tx.Amt.InstdAmt.$.Ccy;
-                    }
-                } else {
-                    amountStr = String(tx.Amt.InstdAmt);
-                }
-            }
-
-            domesticPayments.push({
+            return {
                 ConsentId: grpHdr?.MsgId || '',
                 Initiation: {
                     InstructionIdentification: tx?.PmtId?.InstrId || '',
@@ -135,11 +101,11 @@ module.exports = cds.service.impl(async function () {
                     PaymentContextCode: "BankTransfer",
                     DeliveryAddress: { 
                         Country: tx?.Cdtr?.PstlAdr?.Ctry || pmtInf?.Dbtr?.PstlAdr?.Ctry || "IN", 
-                        AddressLine: Array.isArray(tx?.Cdtr?.PstlAdr?.AdrLine) ? tx.Cdtr.PstlAdr.AdrLine : (tx?.Cdtr?.PstlAdr?.AdrLine ? [tx.Cdtr.PstlAdr.AdrLine] : ["PHALTAN"])
+                        AddressLine: Array.isArray(tx?.Cdtr?.PstlAdr?.AdrLine) ? tx.Cdtr.PstlAdr.AdrLine : [tx?.Cdtr?.PstlAdr?.AdrLine || "PHALTAN"]
                     }
                 }
-            });
-        }
+            };
+        });
 
         const generatedJsonPayload = {
             FileIdentifier: fileName,
@@ -157,118 +123,21 @@ module.exports = cds.service.impl(async function () {
         return { message: `XML uploaded and ${transactions.length} transactions inserted successfully.` };
     });
 
+    // ------------------ Generate Payload Action ------------------
     this.on('generatePayload', async (req) => {
         const { fileIdentifier, Data } = req.data;
         if (!fileIdentifier || !Data) req.error(400, 'fileIdentifier and Data are required');
 
-        let parsedData = Data;
-        if (typeof Data === 'string') {
-            try {
-                parsedData = JSON.parse(Data);
-            } catch (err) {
-                req.error(400, `Invalid Data format: ${err.message}`);
-            }
-        }
+        let parsedData = typeof Data === 'string' ? JSON.parse(Data) : Data;
+        const jsonString = JSON.stringify(parsedData, null, 2);
 
-        console.log("\n=================== RECEIVED JSON PAYLOAD ===================");
-        console.log(JSON.stringify(parsedData, null, 2));
+        // Update PaymentFiles record with Yes Bank JSON payload
+        await UPDATE(PaymentFiles).set({ yesBankPayload: jsonString }).where({ fileIdentifier });
+
+        console.log("\n=================== GENERATED JSON PAYLOAD ===================");
+        console.log(jsonString);
         console.log("==============================================================\n");
 
-        const domesticPayments = parsedData?.DomesticPayments || [];
-        const firstPayment = domesticPayments[0];
-        const initiation = firstPayment?.Initiation;
-        const debtorAccount = initiation?.DebtorAccount;
-
-        const cdtTrfTxInf = domesticPayments.map((pmt) => {
-            const init = pmt.Initiation;
-            const creditorAcc = init?.CreditorAccount;
-            const remittance = init?.RemittanceInformation?.Unstructured;
-
-            let instdAmt = {};
-            if (init?.InstructedAmount?.Amount) {
-                instdAmt = {
-                    _: init.InstructedAmount.Amount,
-                    $: { Ccy: init.InstructedAmount.Currency || 'INR' }
-                };
-            }
-
-            return {
-                PmtId: {
-                    InstrId: init?.InstructionIdentification || '',
-                    EndToEndId: init?.InstructionIdentification || ''
-                },
-                Amt: {
-                    InstdAmt: instdAmt
-                },
-                Cdtr: {
-                    Nm: creditorAcc?.Name || ''
-                },
-                CdtrAcct: {
-                    Id: {
-                        Othr: {
-                            Id: creditorAcc?.Identification || ''
-                        }
-                    }
-                },
-                CdtrAgt: {
-                    FinInstnId: {
-                        ClrSysMmbId: {
-                            MmbId: creditorAcc?.SchemeName || ''
-                        }
-                    }
-                },
-                RmtInf: {
-                    Strd: {
-                        RfrdDocInf: {
-                            Nb: remittance?.CreditorReferenceInformation || ''
-                        }
-                    }
-                }
-            };
-        });
-
-        const xmlObj = {
-            CstmrCdtTrfInitn: {
-                GrpHdr: {
-                    MsgId: parsedData?.ConsentId || '',
-                    NbOfTxs: parsedData?.NumberOfTransactions || String(domesticPayments.length),
-                    CtrlSum: parsedData?.ControSum || ''
-                },
-                PmtInf: {
-                    PmtMtd: initiation?.ClearingSystemIdentification || 'FT',
-                    ReqdExctnDt: new Date().toISOString().split('T')[0],
-                    Dbtr: {
-                        Nm: debtorAccount?.Name || ''
-                    },
-                    DbtrAcct: {
-                        Id: {
-                            Othr: {
-                                Id: debtorAccount?.Identification || ''
-                            }
-                        }
-                    },
-                    DbtrAgt: {
-                        FinInstnId: {
-                            ClrSysMmbId: {
-                                MmbId: debtorAccount?.SchemeName || ''
-                            }
-                        }
-                    },
-                    CdtTrfTxInf: cdtTrfTxInf
-                }
-            }
-        };
-
-        const builder = new xml2js.Builder({ rootName: 'Document', xmldec: { version: '1.0', encoding: 'UTF-8' } });
-        const xmlContent = builder.buildObject(xmlObj);
-
-        // Update the table
-        await UPDATE(PaymentFiles).set({ xmlContent }).where({ fileIdentifier });
-
-        console.log("\n=================== GENERATED XML PAYLOAD ===================");
-        console.log(xmlContent);
-        console.log("==============================================================\n");
-
-        return { xmlContent };
+        return { yesBankPayload: jsonString };
     });
 });

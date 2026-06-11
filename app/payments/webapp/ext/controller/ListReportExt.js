@@ -74,6 +74,16 @@ sap.ui.define([
       });
 
       oDialog.open();
+    },
+
+    onGeneratePayload: async function (oContext, aSelectedContexts) {
+      const contexts = aSelectedContexts && aSelectedContexts.length > 0 ? aSelectedContexts : [oContext];
+      const payloadController = await new Promise((resolve) => {
+        sap.ui.require(["payments/ext/controller/payload"], function (payload) {
+          resolve(payload);
+        });
+      });
+      await payloadController.submit(oContext, contexts);
     }
   };
 });
