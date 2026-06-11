@@ -22,47 +22,60 @@ module.exports = cds.service.impl(async function () {
             const tax = tx?.Tax;
             const rmt = tx?.RmtInf?.Strd;
             const adj = rmt?.RfrdDocAmt?.AdjstmntAmtAndRsn;
+            const cdtr = tx?.Cdtr;
+            const dbtr = pmtInf?.Dbtr;
+            const dbtrAcct = pmtInf?.DbtrAcct;
+            const dbtrAgt = pmtInf?.DbtrAgt;
 
             const newRecord = {
                 ID: cds.utils.uuid(),
-                fileIdentifier: fileName,
+                fileIdentifier: grpHdr?.MsgId || fileName,
                 createdAt: new Date(),
-                yesBankPayload: xmlContent,
-                xmlContent: xmlContent,
 
                 // Group Header
                 consentId: grpHdr?.MsgId || '',
                 numberOfTransactions: parseInt(grpHdr?.NbOfTxs || 0),
                 controlSum: parseFloat(grpHdr?.CtrlSum || 0),
 
+                // Payment info
+                paymentMethod: pmtInf?.PmtMtd || '',
+                executionDate: pmtInf?.ReqdExctnDt ? new Date(pmtInf?.ReqdExctnDt) : null,
+                CmpCode: pmtInf?.CoCode || '',
+                CompanyCodeName: grpHdr?.InitgPty?.Nm || '',
+                pNbOfTxs: pmtInf?.NbOfTxs || 0,
+                pCtrlSum: parseFloat(pmtInf?.CtrlSum || 0),
+
                 // Transaction info
                 secondaryIdentification: tx?.PmtId?.InstrId || '',
                 endToEndId: tx?.PmtId?.EndToEndId || '',
-                paymentMethod: pmtInf?.PmtMtd || '',
-                executionDate: pmtInf?.ReqdExctnDt || '',
                 amount: parseFloat(tx?.Amt?.InstdAmt?._ || 0),
                 currency: tx?.Amt?.InstdAmt?.$.Ccy || '',
 
-                // Debtor
-                debtorName: pmtInf?.Dbtr?.Nm || '',
-                debtorAccount: pmtInf?.DbtrAcct?.Id?.Othr?.Id || '',
-                debtorBank: pmtInf?.DbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+                // Debtor info
+                debtorName: dbtr?.Nm || '',
+                debtorAccount: dbtrAcct?.Id?.Othr?.Id || '',
+                debtorBank: dbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+                debtorCountry: dbtr?.PstlAdr?.Ctry || '',
+                debtorEmail: dbtr?.PstlAdr?.EMail || '',
 
-                // Creditor
-                creditorName: tx?.Cdtr?.Nm || '',
+                // Creditor info
+                creditorName: cdtr?.Nm || '',
                 creditorAccount: tx?.CdtrAcct?.Id?.Othr?.Id || '',
                 creditorBank: tx?.CdtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+                creditorCountry: cdtr?.PstlAdr?.Ctry || '',
+                creditorEmail: cdtr?.EmailID || cdtr?.CtctDtls?.EmailAdr || '',
+                creditorMobile: cdtr?.MobileNo || '',
 
-                // Tax
+                // Tax info
                 taxId: tax?.Dbtr?.TaxId || '',
                 taxRef: tax?.RefNb || '',
-                taxDate: tax?.Dt || '',
+                taxDate: tax?.Dt || null,
                 taxType: tax?.Rcrd?.Tp || '',
                 taxAmount: parseFloat(tax?.Rcrd?.TaxAmt || 0),
                 adjustmentReason: adj?.Rsn || '',
                 adjustmentType: adj?.CdtDbtInd || '',
 
-                // Remittance / Invoice
+                // Remittance / Invoice info
                 invoiceNumber: rmt?.RfrdDocInf?.Invnb || '',
                 invoiceReference: rmt?.RfrdDocInf?.Nb || '',
                 remittanceInfo: rmt?.RfrdDocInf?.NbText || '',
@@ -74,7 +87,7 @@ module.exports = cds.service.impl(async function () {
             await INSERT.into(PaymentFiles).entries(newRecord);
         }
 
-        // Build and print JSON Payload for YES Bank to terminal
+         // Build and print JSON Payload for YES Bank to terminal
         const domesticPayments = [];
         for (const tx of transactions) {
             const rmt = tx?.RmtInf?.Strd;

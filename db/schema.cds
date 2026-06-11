@@ -51,4 +51,9 @@ entity PaymentFiles {
     duePayableAmount                     : Decimal(18,2);
     remittedAmount                       : Decimal(18,2);
     taxAmountRef                         : Decimal(18,2);
+
+    CmpCode          : String(10);
+    CompanyCodeName   : String(100);
+    pNbOfTxs          : Integer;
+    pCtrlSum          : Decimal(15,2);
 }
