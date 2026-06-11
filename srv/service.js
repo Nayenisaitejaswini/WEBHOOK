@@ -4,7 +4,6 @@ const xml2js = require('xml2js');
 module.exports = cds.service.impl(async function () {
     const { PaymentFiles } = this.entities;
 
-    // ------------------ Upload XML Action ------------------
     this.on('uploadXML', async (req) => {
         const { fileName, xmlContent } = req.data;
 
@@ -43,6 +42,12 @@ module.exports = cds.service.impl(async function () {
             debtorBank: pmtInf?.DbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
             debtorCountry: pmtInf?.Dbtr?.PstlAdr?.Ctry || '',
             debtorEmail: pmtInf?.Dbtr?.PstlAdr?.EMail || '',
+            debtorAgentCountry: pmtInf?.DbtrAgt?.FinInstnId?.PstlAdr?.Ctry || '',
+            debtorAgentScheme: pmtInf?.DbtrAgt?.FinInstnId?.Nm || '',
+            debtorAgentIfscCode: pmtInf?.DbtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',
+            debtorBranch: pmtInf?.DbtrAgt?.BrnchId?.Nm || pmtInf?.DbtrAgt?.BrnchId?.Id || '',
+            debtorCountryOfResidence: pmtInf?.Dbtr?.CtryOfRes || '',
+            debtorAccountCcy: pmtInf?.DbtrAcct?.Ccy || '',
             creditorName: transactions[0]?.Cdtr?.Nm || '',
             creditorAccount: transactions[0]?.CdtrAcct?.Id?.Othr?.Id || '',
             creditorBank: transactions[0]?.CdtrAgt?.FinInstnId?.ClrSysMmbId?.MmbId || '',

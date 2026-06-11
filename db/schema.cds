@@ -26,6 +26,12 @@ entity PaymentFiles {
     debtorBank                        : String(50);
     debtorCountry                     : String(5);
     debtorEmail                       : String(100);
+    debtorAgentCountry                : String(5);
+    debtorAgentScheme                 : String(100);
+    debtorAgentIfscCode               : String(20);
+    debtorBranch                      : String(100);
+    debtorCountryOfResidence          : String(5);
+    debtorAccountCcy                  : String(5);
 
     // Creditor info
     creditorName                       : String(100);
